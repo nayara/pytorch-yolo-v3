@@ -59,9 +59,11 @@ def get_output(output, im_dim_list,inp_dim):
 def write_output_file(output, file_name_list):
     datafile = open("result.txt", 'a')  
     output = output.tolist()
+    print(file_name_list)
     for item in output:
         if(item[-1]==0):
-            str2write = file_name_list[int(item[0])]+","+ str(int(item[1]))+","+str(int(item[2]))+","+ str(int(item[3]))+","+str(int(item[4]))+"\n"  
+            namefile = file_name_list[int(item[0])].split("/")[-1]
+            str2write = namefile+","+ str(int(item[1]))+","+str(int(item[2]))+","+ str(int(item[3]))+","+str(int(item[4]))+"\n"  
             print(str2write)
             datafile.write(str2write)
                 
@@ -256,11 +258,10 @@ if __name__ ==  '__main__':
             write = 1
         else:
             output = torch.cat((output,prediction))
-        
+        print(len(imlist))
         for im_num, image in enumerate(imlist[i*batch_size: min((i +  1)*batch_size, len(imlist))]):
             im_id = i*batch_size + im_num
             objs = [classes[int(x[-1])] for x in output if int(x[0]) == im_id]         
-            names_list.append("{}".format(image.split('/')[-1]))
             print("{0:20s} predicted in {1:6.3f} seconds".format(image.split("/")[-1], (end - start)/batch_size))
             print("{0:20s} {1:s}".format("Objects Detected:", " ".join(objs)))
             print("----------------------------------------------------------")
@@ -278,7 +279,7 @@ if __name__ ==  '__main__':
         
     output = get_output(output,im_dim_list,inp_dim)  
 
-    write_output_file(output, names_list)
+    write_output_file(output, imlist)
 
     output_recast = time.time()
     
