@@ -41,14 +41,38 @@ def get_test_input(input_dim, CUDA):
         img_ = img_.cuda()
     num_classes
     return img_
-
-
+def get_output(output, im_dim_list,inp_dim):
+    im_dim_list = torch.index_select(im_dim_list, 0, output[:,0].long())
+    
+    scaling_factor = torch.min(inp_dim/im_dim_list,1)[0].view(-1,1)
+    
+    output[:,[1,3]] -= (inp_dim - scaling_factor*im_dim_list[:,0].view(-1,1))/2
+    output[:,[2,4]] -= (inp_dim - scaling_factor*im_dim_list[:,1].view(-1,1))/2
+    
+    output[:,1:5] /= scaling_factor
+    
+    for i in range(output.shape[0]):
+        output[i, [1,3]] = torch.clamp(output[i, [1,3]], 0.0, im_dim_list[i,0])
+        output[i, [2,4]] = torch.clamp(output[i, [2,4]], 0.0, im_dim_list[i,1])
+    
+    return output
+def write_output_file(output, file_name_list):
+    datafile = open("result.txt", 'a')  
+    output = output.tolist()
+    for item in output:
+        if(item[-1]==0):
+            str2write = file_name_list[int(item[0])]+","+ str(int(item[1]))+","+str(int(item[2]))+","+ str(int(item[3]))+","+str(int(item[4]))+"\n"  
+            print(str2write)
+            datafile.write(str2write)
+                
 
 def arg_parse():
     """
     Parse arguements to the detect module
     
     """
+    
+    
     
     
     parser = argparse.ArgumentParser(description='YOLO v3 Detection Module')
@@ -111,7 +135,7 @@ if __name__ ==  '__main__':
 
     num_classes = 80
     classes = load_classes('data/coco.names') 
-
+    names_list = [];
     #Set up the neural network
     print("Loading network.....")
     model = Darknet(args.cfgfile)
@@ -225,25 +249,23 @@ if __name__ ==  '__main__':
         prediction[:,0] += i*batch_size
         
     
-            
+       
           
         if not write:
             output = prediction
             write = 1
         else:
             output = torch.cat((output,prediction))
-            
         
-        
-
         for im_num, image in enumerate(imlist[i*batch_size: min((i +  1)*batch_size, len(imlist))]):
             im_id = i*batch_size + im_num
-            objs = [classes[int(x[-1])] for x in output if int(x[0]) == im_id]
+            objs = [classes[int(x[-1])] for x in output if int(x[0]) == im_id]         
+            names_list.append("{}".format(image.split('/')[-1]))
             print("{0:20s} predicted in {1:6.3f} seconds".format(image.split("/")[-1], (end - start)/batch_size))
             print("{0:20s} {1:s}".format("Objects Detected:", " ".join(objs)))
             print("----------------------------------------------------------")
         i += 1
-
+    
         
         if CUDA:
             torch.cuda.synchronize()
@@ -254,25 +276,11 @@ if __name__ ==  '__main__':
         print("No detections were made")
         exit()
         
-    im_dim_list = torch.index_select(im_dim_list, 0, output[:,0].long())
-    
-    scaling_factor = torch.min(inp_dim/im_dim_list,1)[0].view(-1,1)
-    
-    
-    output[:,[1,3]] -= (inp_dim - scaling_factor*im_dim_list[:,0].view(-1,1))/2
-    output[:,[2,4]] -= (inp_dim - scaling_factor*im_dim_list[:,1].view(-1,1))/2
-    
-    
-    
-    output[:,1:5] /= scaling_factor
-    
-    for i in range(output.shape[0]):
-        output[i, [1,3]] = torch.clamp(output[i, [1,3]], 0.0, im_dim_list[i,0])
-        output[i, [2,4]] = torch.clamp(output[i, [2,4]], 0.0, im_dim_list[i,1])
-        
-        
+    output = get_output(output,im_dim_list,inp_dim)  
+
+    write_output_file(output, names_list)
+
     output_recast = time.time()
-    
     
     class_load = time.time()
 
@@ -298,9 +306,8 @@ if __name__ ==  '__main__':
     
             
     list(map(lambda x: write(x, im_batches, orig_ims), output))
-      
+
     det_names = pd.Series(imlist).apply(lambda x: "{}/det_{}".format(args.det,x.split("/")[-1]))
-    
     list(map(cv2.imwrite, det_names, orig_ims))
     
     end = time.time()
