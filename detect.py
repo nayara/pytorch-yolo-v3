@@ -63,7 +63,7 @@ def write_output_file(output, file_name_list):
     for item in output:
         if(item[-1]==0):
             namefile = file_name_list[int(item[0])].split("/")[-1]
-            str2write = namefile+","+ str(int(item[1]))+","+str(int(item[2]))+","+ str(int(item[3]))+","+str(int(item[4]))+"\n"  
+            str2write = namefile+":noblk,"+ str(int(item[1]))+","+str(int(item[2]))+","+ str(int(item[3]))+","+str(int(item[4]))+"\n"  
             print(str2write)
             datafile.write(str2write)
                 
@@ -179,8 +179,6 @@ if __name__ ==  '__main__':
     im_dim_list = [x[2] for x in batches]
     im_dim_list = torch.FloatTensor(im_dim_list).repeat(1,2)
     
-    
-    
     if CUDA:
         im_dim_list = im_dim_list.cuda()
     
@@ -258,7 +256,6 @@ if __name__ ==  '__main__':
             write = 1
         else:
             output = torch.cat((output,prediction))
-        print(len(imlist))
         for im_num, image in enumerate(imlist[i*batch_size: min((i +  1)*batch_size, len(imlist))]):
             im_id = i*batch_size + im_num
             objs = [classes[int(x[-1])] for x in output if int(x[0]) == im_id]         
